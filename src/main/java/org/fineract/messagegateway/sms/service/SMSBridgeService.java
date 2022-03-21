@@ -30,7 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service(value = "apacheServiceBridge")
+@Service(value = "momoServiceBridge")
 public class SMSBridgeService {
 
 	private final SMSBridgeRepository smsBridgeRepository;
@@ -44,8 +44,8 @@ public class SMSBridgeService {
 			final SmsBridgeSerializer smsBridgeService,
 			final SecurityService securityService) {
 		this.smsBridgeRepository = smsBridgeRepository;
-		this.smsBridgeService = smsBridgeService ;
-		this.securityService = securityService ;
+		this.smsBridgeService = smsBridgeService;
+		this.securityService = securityService;
 	}
 
 	public Collection<SMSBridge> retrieveProviderDetails(final String tenantId, final String tenantAppKey) {
