@@ -19,16 +19,38 @@
 package org.fineract.messagegateway.sms.api;
 
 import java.util.Collection;
+import java.util.Date;
 
+import okhttp3.Request;
 import org.fineract.messagegateway.constants.MessageGatewayConstants;
 import org.fineract.messagegateway.exception.PlatformApiDataValidationException;
 import org.fineract.messagegateway.exception.UnsupportedParameterException;
 import org.fineract.messagegateway.helpers.ApiGlobalErrorResponse;
 import org.fineract.messagegateway.helpers.PlatformApiDataValidationExceptionMapper;
 import org.fineract.messagegateway.helpers.PlatformResourceNotFoundExceptionMapper;
+import javax.ws.rs.core.Context;
+import okhttp3.OkHttpClient;
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import com.google.gson.JsonSyntaxException;
+import org.json.JSONArray;
+import org.json.simple.parser.JSONParser;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
+import okhttp3.Response;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.fineract.messagegateway.helpers.UnsupportedParameterExceptionMapper;
 import org.fineract.messagegateway.sms.domain.SMSBridge;
 import org.fineract.messagegateway.sms.exception.SMSBridgeNotFoundException;
+import org.fineract.messagegateway.sms.service.MomoBridgeService;
 import org.fineract.messagegateway.sms.service.SMSBridgeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -41,15 +63,31 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.squareup.okhttp.Credentials;
+import com.squareup.okhttp.MediaType;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
+//
+
+//
 @RestController
 @RequestMapping("/smsbridges")
 public class SmsBridgeApiResource {
 
-	private final SMSBridgeService smsBridgeService ;
+	private final SMSBridgeService smsBridgeService;
+	private final MomoBridgeService momoBridgeService;
+      
+private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "name", "systemDefined"));
+private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.class);
 	
 	@Autowired
-    public SmsBridgeApiResource(final SMSBridgeService smsBridgeService) {
+    public SmsBridgeApiResource(final SMSBridgeService smsBridgeService, final MomoBridgeService momoBridgeService) {
 		this.smsBridgeService = smsBridgeService ;
+		this.momoBridgeService = momoBridgeService;
+              
     }
 
     @RequestMapping(method = RequestMethod.POST, consumes = {"application/json"}, produces = {"application/json"})
@@ -90,7 +128,113 @@ public class SmsBridgeApiResource {
         SMSBridge bridge = this.smsBridgeService.retrieveSmsBridge(tenantId, appKey, bridgeId);
 		return new ResponseEntity<>(bridge, HttpStatus.OK);
     }
-    
+
+     @RequestMapping(value = "/loanAccounts", method = RequestMethod.GET, consumes = {"application/json"}, produces = {"application/json"})
+    public String getLoanAccounts(@RequestHeader(MessageGatewayConstants.TENANT_IDENTIFIER_HEADER) final String tenantId,
+    		@RequestHeader("accountNumber") final String accountNumber,
+    		@RequestHeader("amount") final String amount) {
+       // final Collection<CodeData> codes = this.readPlatformService.retrieveAllCodes();
+
+    	
+         RequestBody requestBody = null;
+         String url = "https://release160.guchietech.pw/fineract-provider/api/v1/loans?sqlSearch=c.account_No="+accountNumber+"&tenantIdentifier=default";
+         
+       
+         String responseMessage = this.momoBridgeService.okHttpMethod(url, null);
+         
+       
+         
+  
+         //fetch the loanid 
+         //JSONArray array = responseMessage;
+        try {
+			//	JsonObject reportObject =  JsonParser.parseString(responseMessage).getAsJsonObject();
+        	JsonParser parser = new JsonParser();
+        	JsonElement jsonElement = parser.parse(responseMessage);
+        	
+        	JsonObject childObject = jsonElement.getAsJsonObject();
+        	
+        	JsonElement pageitemsElement= childObject.get("pageItems");
+        	
+        	JsonArray loans = (JsonArray) pageitemsElement;
+        	
+        	
+        	for ( int i=0; i<loans.size(); ++i) {
+        		JsonObject data = loans.get(i).getAsJsonObject();
+        		JsonObject statusObject = data.get("status").getAsJsonObject();
+        		
+        		String id = statusObject.get("id").getAsString(); //loanstatusid
+        		
+                if(id.equals("300")) {
+                	
+                	String loanId = data.get("id").getAsString(); //loanid
+                	System.out.println("loanId:: "+ loanId);
+                	 String loanUrl = "https://release160.guchietech.pw/fineract-provider/api/v1/loans/"+loanId+"?associations=all&tenantIdentifier=default";
+                	 String LoanResponseMessage = this.momoBridgeService.okHttpMethod(loanUrl, null);
+                	 
+                	 JsonElement loanElement = parser.parse(LoanResponseMessage);
+                 	
+                 	JsonObject loanObject = loanElement.getAsJsonObject();
+                 	
+                 	JsonObject linkedAccount= loanObject.get("linkedAccount").getAsJsonObject();
+                 	System.out.println("linkedAccount: " +  linkedAccount);
+                 	String linkedAccountId = linkedAccount.get("id").getAsString(); //linkedSavingsId
+                 	System.out.println("linkedAccountId: " +  linkedAccountId);
+                 	
+                 	LocalDateTime myDateObj = LocalDateTime.now();
+                    System.out.println("Before formatting: " + myDateObj);
+                    DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+                    String formattedDate = myDateObj.format(myFormatObj);
+                    
+                 	
+                 	String transaction = "{'transactionDate':'"+formattedDate+"','transactionAmount':'"+amount+"','paymentTypeId':1,'locale':'en','dateFormat':'dd MMMM yyyy'}";
+                 	System.out.println("body: " + transaction);
+                 	String savingsUrl ="https://release160.guchietech.pw/fineract-provider/api/v1/savingsaccounts/"+linkedAccountId+"/transactions?command=deposit&tenantIdentifier=default";
+                 	String SavingsResponseMessage = this.momoBridgeService.okHttpMethod(savingsUrl, transaction);
+                 	System.out.println("SavingsResponseMessage" + SavingsResponseMessage);
+                }
+            }
+        	//JsonObject pageItems = (JsonObject) childObject.get("pageItems");
+        	//System.out.println("-------------------");
+        	//System.out.println("pageItems: " +  pageItems);
+        	
+        	
+//        	JsonArray fetchArray = (JsonArray) jsonElement;
+        	 
+        	
+        	//JsonObject rootObject = jsonElement.getAsJsonObject();
+        	//String loanAccounts = rootObject.get("pageItems").getAsString();
+        	//  System.out.println("pageItems " + loanAccounts);
+        	  
+		} catch (JsonSyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+       //  JsonElement element = reportObject.get("loanAccounts");
+         
+      //   System.out.println("element loanaccount " + element);
+         //fetch the loanid
+         
+      //   String loanUrl = "https://release160.guchietech.pw/fineract-provider/api/v1/loans/"+id+"?associations=all";
+         
+         
+         return  responseMessage;
+         
+        //final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        //return this.toApiJsonSerializer.serialize(settings, codes, RESPONSE_DATA_PARAMETERS);
+    }
+
+	
+   /*  @RequestMapping(value = "/getLinkSavingsId", method = RequestMethod.GET, consumes = {"application/json"}, produces = {"application/json"})
+     public String getLinkedSavingsAccount(@RequestHeader(MessageGatewayConstants.TENANT_IDENTIFIER_HEADER) final String tenantId,
+ @Context final UriInfo uriInfo) {
+        // final Collection<CodeData> codes = this.readPlatformService.retrieveAllCodes();
+
+         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+       //  return this.toApiJsonSerializer.serialize(settings, codes, RESPONSE_DATA_PARAMETERS);
+     }
+    */
     @ExceptionHandler({PlatformApiDataValidationException.class})
     public ResponseEntity<ApiGlobalErrorResponse> handlePlatformApiDataValidationException(PlatformApiDataValidationException e) {
     	return PlatformApiDataValidationExceptionMapper.toResponse(e) ;

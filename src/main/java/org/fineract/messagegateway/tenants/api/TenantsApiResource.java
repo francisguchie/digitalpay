@@ -44,4 +44,5 @@ public class TenantsApiResource {
     		 String appKey = this.tenantService.createTenant(tenant) ;
     		 return new ResponseEntity<>(appKey, HttpStatus.CREATED);
     }
+    
 }
