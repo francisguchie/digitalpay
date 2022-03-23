@@ -137,16 +137,10 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
 
     	
          RequestBody requestBody = null;
-         String url = "https://release160.guchietech.pw/fineract-provider/api/v1/loans?sqlSearch=c.account_No="+accountNumber+"&tenantIdentifier=default";
-         
+         String url = "https://release160.guchietech.pw/fineract-provider/api/v1/clients?sqlSearch=c.account_No="+accountNumber+"&tenantIdentifier=default";
        
          String responseMessage = this.momoBridgeService.okHttpMethod(url, null);
-         
-       
-         
-  
-         //fetch the loanid 
-         //JSONArray array = responseMessage;
+     
         try {
 			//	JsonObject reportObject =  JsonParser.parseString(responseMessage).getAsJsonObject();
         	JsonParser parser = new JsonParser();
@@ -163,67 +157,49 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
         		JsonObject data = loans.get(i).getAsJsonObject();
         		JsonObject statusObject = data.get("status").getAsJsonObject();
         		
-        		String id = statusObject.get("id").getAsString(); //loanstatusid
+        		String statusId = statusObject.get("id").getAsString();  //clientId
+        		System.out.println("id : " + statusId);
         		
-                if(id.equals("300")) {
+                if(statusId.equals("300")) {
                 	
-                	String loanId = data.get("id").getAsString(); //loanid
-                	System.out.println("loanId:: "+ loanId);
-                	 String loanUrl = "https://release160.guchietech.pw/fineract-provider/api/v1/loans/"+loanId+"?associations=all&tenantIdentifier=default";
-                	 String LoanResponseMessage = this.momoBridgeService.okHttpMethod(loanUrl, null);
-                	 
-                	 JsonElement loanElement = parser.parse(LoanResponseMessage);
-                 	
+                	String clientId = data.get("id").getAsString(); //clientId
+                	System.out.println("clientId : " + clientId);
+                	String clientUrl = "https://release160.guchietech.pw/fineract-provider/api/v1/clients/"+clientId+"?tenantIdentifier=default";
+                	 String clientResponseMessage = this.momoBridgeService.okHttpMethod(clientUrl, null);
+                	 System.out.println("*****");
+                	 System.out.println("clientResponseMessage++ " + clientResponseMessage);
+                	 JsonElement loanElement = parser.parse(clientResponseMessage);
                  	JsonObject loanObject = loanElement.getAsJsonObject();
-                 	
-                 	JsonObject linkedAccount= loanObject.get("linkedAccount").getAsJsonObject();
-                 	System.out.println("linkedAccount: " +  linkedAccount);
-                 	String linkedAccountId = linkedAccount.get("id").getAsString(); //linkedSavingsId
-                 	System.out.println("linkedAccountId: " +  linkedAccountId);
-                 	
+                 	String savingsId= loanObject.get("savingsAccountId").getAsString();
+                 	System.out.println("savingsId: " +  savingsId);
+       
                  	LocalDateTime myDateObj = LocalDateTime.now();
                     System.out.println("Before formatting: " + myDateObj);
                     DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd MMMM yyyy");
                     String formattedDate = myDateObj.format(myFormatObj);
-                    
-                 	
                  	String transaction = "{'transactionDate':'"+formattedDate+"','transactionAmount':'"+amount+"','paymentTypeId':1,'locale':'en','dateFormat':'dd MMMM yyyy'}";
-                 	System.out.println("body: " + transaction);
-                 	String savingsUrl ="https://release160.guchietech.pw/fineract-provider/api/v1/savingsaccounts/"+linkedAccountId+"/transactions?command=deposit&tenantIdentifier=default";
+                 	String savingsUrl ="https://release160.guchietech.pw/fineract-provider/api/v1/savingsaccounts/"+savingsId+"/transactions?command=deposit&tenantIdentifier=default";
                  	String SavingsResponseMessage = this.momoBridgeService.okHttpMethod(savingsUrl, transaction);
-                 	System.out.println("SavingsResponseMessage" + SavingsResponseMessage);
                 }
             }
-        	//JsonObject pageItems = (JsonObject) childObject.get("pageItems");
-        	//System.out.println("-------------------");
-        	//System.out.println("pageItems: " +  pageItems);
-        	
-        	
-//        	JsonArray fetchArray = (JsonArray) jsonElement;
-        	 
-        	
-        	//JsonObject rootObject = jsonElement.getAsJsonObject();
-        	//String loanAccounts = rootObject.get("pageItems").getAsString();
-        	//  System.out.println("pageItems " + loanAccounts);
-        	  
 		} catch (JsonSyntaxException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-       //  JsonElement element = reportObject.get("loanAccounts");
-         
-      //   System.out.println("element loanaccount " + element);
-         //fetch the loanid
-         
-      //   String loanUrl = "https://release160.guchietech.pw/fineract-provider/api/v1/loans/"+id+"?associations=all";
-         
-         
          return  responseMessage;
-         
-        //final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
-        //return this.toApiJsonSerializer.serialize(settings, codes, RESPONSE_DATA_PARAMETERS);
     }
+     
+     @RequestMapping(value = "/momoDeposit", method = RequestMethod.GET, consumes = {"application/json"}, produces = {"application/json"})
+     public String postDepositMomo(@RequestHeader(MessageGatewayConstants.TENANT_IDENTIFIER_HEADER) final String tenantId,
+     		@RequestHeader("mobileNo")  String mobileNo,
+     		@RequestHeader("amount")  String amount) {
+    	 
+    	 RequestBody requestBody = null;
+        // String url = "https://release160.guchietech.pw/fineract-provider/api/v1/loans?sqlSearch=c.account_No="+accountNumber+"&tenantIdentifier=default";
+
+         String result = null;
+     	return result;
+     }
 
 	
    /*  @RequestMapping(value = "/getLinkSavingsId", method = RequestMethod.GET, consumes = {"application/json"}, produces = {"application/json"})
