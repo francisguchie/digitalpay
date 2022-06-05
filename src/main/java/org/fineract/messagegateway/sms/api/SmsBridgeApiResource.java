@@ -21,6 +21,7 @@ package org.fineract.messagegateway.sms.api;
 import java.util.Collection;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.HashMap;
 
 import okhttp3.Request;
 import okhttp3.Response;
@@ -32,9 +33,13 @@ import org.fineract.messagegateway.helpers.ApiGlobalErrorResponse;
 import org.fineract.messagegateway.helpers.PlatformApiDataValidationExceptionMapper;
 import org.fineract.messagegateway.helpers.PlatformResourceNotFoundExceptionMapper;
 import javax.ws.rs.core.Context;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
 import okhttp3.OkHttpClient;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
+import okhttp3.Response;
 import com.google.gson.JsonSyntaxException;
 import org.json.JSONArray;
 import com.google.gson.JsonParser;
@@ -42,7 +47,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonElement;
+
+import org.fineract.messagegateway.sms.domain.ParserUtil;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import org.slf4j.Logger;
@@ -65,21 +74,25 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import org.yaml.snakeyaml.nodes.Node;
 
 import com.squareup.okhttp.Credentials;
 import com.squareup.okhttp.MediaType;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 //
 
 //
 @RestController
-@RequestMapping("/smsbridges")
 public class SmsBridgeApiResource {
 
 	private final SMSBridgeService smsBridgeService;
@@ -149,7 +162,7 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
          String responseMessage = null;
          String url = "https://release160.guchietech.pw/fineract-provider/api/v1/clients?sqlSearch=c.account_No="+accountNumber+"&tenantIdentifier=default";
        
-         Response response = this.momoBridgeService.okHttpMethod(url, null, "fineract", null);
+         final Response response = this.momoBridgeService.okHttpMethod(url, null, "fineract", null);
          try {
          responseMessage = response.body().string();
          }catch (IOException e) {
@@ -216,13 +229,153 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
          return  responseMessage;
     }
      
-     @RequestMapping(value = "/momoDeposit/", method = RequestMethod.POST, consumes = {"application/json"}, produces = {"application/json"})
-     public String postDepositMomo(@RequestHeader(MessageGatewayConstants.TENANT_IDENTIFIER_HEADER) final String tenantId,
-     @RequestBody final String jsonBody) {
+     
+     
+     /*********************************************FROM HERE Payment From Encot TO MOMO ************************************/
+     @RequestMapping(value = "/payment", method = RequestMethod.POST, consumes = {"application/xml", "text/xml;charset=utf-8"}, produces = {"application/xml", "text/xml;charset=utf-8"})
+     @ApiOperation(value = "payment")
+     public String postDepositMomo(@RequestBody String xml) {
+    	 String responseMessage = null;
     	 
-    	 return getMomoResponse(jsonBody);
+    	 Map<String, String> response = ParserUtil.processXML(xml);
+    	 
+    	 String savingsAccountId = response.get("message"); //defaultSavingsId is passed in Message
+    	 System.out.println("savingsId : " + savingsAccountId);
+    	 
+    	 String msisdn = response.get("accountholderid"); 
+    	 System.out.println("msisdn : " + msisdn);
+    	 String phoneNumber = ParserUtil.extractPhoneNumber(msisdn);
+    	 System.out.println("phoneNumber : " + phoneNumber);
+    	 
+    	 MomoBridge paymentTypeConfig = this.momoConfigurationRepository.findOneByName("paymentType");
+	     String paymentType = paymentTypeConfig.getValue();
+	        
+    	 
+    	 if(!savingsAccountId.isBlank()) {
+    		    System.out.println("savings account NOT blank");
+    		    //String depositUrl = "https://livetest.encot.net/fineract-provider/api/v1/savingsaccounts/{savingsAccountId}/transactions?command=deposit&tenantIdentifier=default";
+    		    MomoBridge depositUrlConfig = this.momoConfigurationRepository.findOneByName("depositSavingsUrl");
+    	        String url = depositUrlConfig.getValue();
+    	        String depositUrl = url.replace("{defaultSavingsId}", savingsAccountId);
+    		 
+    		    LocalDateTime myDateObj = LocalDateTime.now();
+    	      
+    	        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+    	        String formattedDate = myDateObj.format(myFormatObj);
+    	        
+    	        String amount = response.get("amount");
+    	       
+    	        String transaction = "{'transactionDate':'"+formattedDate+"','transactionAmount':'"+amount+"','paymentTypeId':"+paymentType+",'locale':'en','dateFormat':'dd MMMM yyyy'}";
+    	        
+    	        
+    	        Response SavingsResponseMessage = this.momoBridgeService.okHttpMethod(depositUrl, transaction, "fineract", null);
+    	        
+    	        
+    	        try {
+    	            responseMessage = SavingsResponseMessage.body().string();
+    	            }catch (IOException e) {
+    	                LOG.error("error occured in HTTP request-response method.", e);
+    	            }
+    	        System.out.println("deposit successful--- >" + responseMessage);
+    	    	 }
+    	 else if(!phoneNumber.isBlank()) {
+    		 
+    	 System.out.println("savings account blank");
+    	 String transactionId = response.get("transactionid");
+    	
+    	 //fetch the client account number from msisdn
+    	// String clientUrl = "https://livetest.encot.net/fineract-provider/api/v1/clients?sqlSearch=c.mobile_no={mobileNumber}&tenantIdentifier=default";
+    	 MomoBridge clientSqlSearchUrlConfig = this.momoConfigurationRepository.findOneByName("clientSqlSearchUrl");
+	     String clientSearchUrl = clientSqlSearchUrlConfig.getValue();
+	    // String url = clientSearchUrl.getValue();
+	     clientSearchUrl = clientSearchUrl.replace("{mobileNumber}", phoneNumber);
+	     
+	     
+    	 final Response clientDetails = this.momoBridgeService.okHttpMethod(clientSearchUrl, null, "fineract-get", null);
+    	 System.out.println("clientDetails : " + clientDetails);
+    	
+    	
+         try {
+         responseMessage = clientDetails.body().string();
+         }catch (IOException e) {
+             LOG.error("error occured in HTTP request-response method.", e);
+         }
+     
+         
+         
+    	 //fetch the default savings account from client account no.
+    	 
+    	JsonParser parser = new JsonParser();
+     	JsonElement jsonElement = parser.parse(responseMessage);
+     	
+     	JsonObject childObject = jsonElement.getAsJsonObject();
+     	
+     	JsonElement pageitemsElement= childObject.get("pageItems");
+     	
+     	JsonArray clientDetailsJson = (JsonArray) pageitemsElement;
+     	
+     	String clientId = null;
+     	for ( int i=0; i<clientDetailsJson.size(); ++i) {
+     		JsonObject data = clientDetailsJson.get(i).getAsJsonObject();
+     		System.out.println("data: " + data);
+     		clientId = data.get("id").getAsString();
+     		System.out.println("id " + clientId);
+     	}
+    	
+     	//String clientUrlForDefaultSavingsAccount = "https://livetest.encot.net/fineract-provider/api/v1/clients/"+id+"?tenantIdentifier=default";
+     	MomoBridge defaultSavingsAccountConfig = this.momoConfigurationRepository.findOneByName("getClientDetailsUrl");
+	    String getClientDetailsUrl = defaultSavingsAccountConfig.getValue();
+	    clientSearchUrl = getClientDetailsUrl.replace("{clientId}", clientId);
+	     
+     	final Response clientData = this.momoBridgeService.okHttpMethod(clientSearchUrl, null, "fineract-get", null);
+    	 
+     	try {
+            responseMessage = clientData.body().string();
+            }catch (IOException e) {
+                LOG.error("error occured in HTTP request-response method.", e);
+            }
+     	
+    	 
+    	 
+     	
+    	JsonObject jsonObject = parser.parse(responseMessage).getAsJsonObject();
+        System.out.println("savingsAccountId#### : " + jsonObject);
+        
+       // String defaultSavingsId = jsonObject.getAsJsonArray("savingsAccountId").getAsString();
+    	String defaultSavingsId = jsonObject.get("savingsAccountId").getAsString();
+        
+      //  String depositUrl = "https://livetest.encot.net/fineract-provider/api/v1/savingsaccounts/"+defaultSavingsId+"/transactions?command=deposit&tenantIdentifier=default";
+        MomoBridge depositUrlConfiguration = this.momoConfigurationRepository.findOneByName("depositSavingsUrl");
+	    String depositUrl = depositUrlConfiguration.getValue();
+	    //String url = clientSearchUrl.getValue();
+	    depositUrl = depositUrl.replace("{defaultSavingsId}", defaultSavingsId);
+    	 
+    	
+    	LocalDateTime myDateObj = LocalDateTime.now();
+      
+        DateTimeFormatter myFormatObj = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+        String formattedDate = myDateObj.format(myFormatObj);
+        
+        String amount = response.get("amount");
+        String transaction = "{'transactionDate':'"+formattedDate+"','transactionAmount':'"+amount+"','paymentTypeId':"+paymentType+",'locale':'en','dateFormat':'dd MMMM yyyy'}";
+        System.out.println("transaction body ##$$ " + transaction );
+        
+        Response SavingsResponseMessage = this.momoBridgeService.okHttpMethod(depositUrl, transaction, "fineract", null);
+        
+        
+        try {
+            responseMessage = SavingsResponseMessage.body().string();
+            }catch (IOException e) {
+                LOG.error("error occured in HTTP request-response method.", e);
+            }
+            System.out.println("deposit successful--- >" + responseMessage);
+    	 }
+    	 
+    	 return responseMessage;
+    
      }
-
+    /*********************************************TILL HERE Payment From Encot TO MOMO ************************************/
+     
 	private String getMomoResponse(final String jsonBody) {
 		String apiKey = null;
     	 String url = null;
@@ -348,17 +501,7 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
          return response;
 	}
 
-	
-   /*  @RequestMapping(value = "/getLinkSavingsId", method = RequestMethod.GET, consumes = {"application/json"}, produces = {"application/json"})
-     public String getLinkedSavingsAccount(@RequestHeader(MessageGatewayConstants.TENANT_IDENTIFIER_HEADER) final String tenantId,
- @Context final UriInfo uriInfo) {
-        // final Collection<CodeData> codes = this.readPlatformService.retrieveAllCodes();
-
-         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
-       //  return this.toApiJsonSerializer.serialize(settings, codes, RESPONSE_DATA_PARAMETERS);
-     }
-    */
-    @ExceptionHandler({PlatformApiDataValidationException.class})
+	@ExceptionHandler({PlatformApiDataValidationException.class})
     public ResponseEntity<ApiGlobalErrorResponse> handlePlatformApiDataValidationException(PlatformApiDataValidationException e) {
     	return PlatformApiDataValidationExceptionMapper.toResponse(e) ;
     }

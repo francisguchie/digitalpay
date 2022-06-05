@@ -80,7 +80,7 @@ public class MomoBridgeService {
 	
 	
 	public Response okHttpMethod(String url, String body, String type, String referenceId) {
-		 System.out.print("URL**: "+url);
+		 System.out.print("URL**: "+url +"--");
 		 String responseMessage = null;
 		 OkHttpClient client = new OkHttpClient();
          HttpUrl.Builder urlBuilder = HttpUrl.parse(url).newBuilder();
@@ -90,15 +90,32 @@ public class MomoBridgeService {
          
          MomoBridge subscriptionKeyConfig = this.momoConfigurationRepository.findOneByName("subscription_key");
 		 String subscriptionKey = subscriptionKeyConfig.getValue();
+		 
+		 MomoBridge mifosUsernameConfig = this.momoConfigurationRepository.findOneByName("mifos_username");
+		 String username = mifosUsernameConfig.getValue();
+		 
+		 MomoBridge mifosPasswordConfig = this.momoConfigurationRepository.findOneByName("mifos_password");
+		 String password = mifosPasswordConfig.getValue();
+		 
+		 
          
          if(type.equals("fineract")) {
-         credential = Credentials.basic("rahul", "password");
+         credential = Credentials.basic(username, password);
          
          final MediaType mediaType = MediaType.parse("application/json");
          RequestBody requestBody = RequestBody.create(body, mediaType);
         	  request = new Request.Builder().header("Content-Type", "application/json")
             		 .header("Authorization", credential).url(urlokhttp).post(requestBody).build();
         	  
+         }
+         else if (type.equals("fineract-get")) {
+        	 System.out.print("fineract-get");
+        	 credential = Credentials.basic(username, password);
+             
+             final MediaType mediaType = MediaType.parse("application/json");
+            // RequestBody requestBody = RequestBody.create(body, mediaType);
+            	  request = new Request.Builder().header("Content-Type", "application/json")
+                		 .header("Authorization", credential).url(urlokhttp).get().build();
          }
          else if(type.equals("getapiuser")) {
          request = new Request.Builder().header("Ocp-Apim-Subscription-Key", subscriptionKey)
@@ -142,10 +159,10 @@ public class MomoBridgeService {
          }
          else if(type.equals("token")) {
         	 MomoBridge uuid = this.momoConfigurationRepository.findOneByName("uuid");        	 
-             String username = uuid.getValue();             
+             username = uuid.getValue();             
            
              MomoBridge apiKey = this.momoConfigurationRepository.findOneByName("api_key");
-             String password = apiKey.getValue();
+             password = apiKey.getValue();
              System.out.println("password : "+ password);
         	 credential = Credentials.basic(username, password); 
         	 final MediaType mediaType = MediaType.parse("application/json");
@@ -166,8 +183,8 @@ public class MomoBridgeService {
          try {
          response = client.newCall(request).execute();
           //   responseCode = response.code();
-          //   responseMessage = response.body().string();
-          //   System.out.println("responseMessage :" + responseMessage);
+          // responseMessage = response.body().string();
+          // System.out.println("responseMessage :" + responseMessage);
        
          } catch (IOException e) {
                   LOG.error("error occured in HTTP request-response method.", e);
