@@ -16,9 +16,9 @@ spring:
       ddl-auto: none
 
   datasource:
-    url: jdbc:mysql:thin://localhost:1102/messagegateway
+    url: jdbc:mysql:thin://localhost:3306/messagegateway
     username: root
-    password: B1melabumez1
+    password: mysql
     driver-class-name: org.drizzle.jdbc.DrizzleDriver
 
 # Status Callback configuration for Twilio. Port will be taken from server configuration

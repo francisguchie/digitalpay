@@ -32,7 +32,6 @@ import org.fineract.messagegateway.exception.UnsupportedParameterException;
 import org.fineract.messagegateway.helpers.ApiGlobalErrorResponse;
 import org.fineract.messagegateway.helpers.PlatformApiDataValidationExceptionMapper;
 import org.fineract.messagegateway.helpers.PlatformResourceNotFoundExceptionMapper;
-import javax.ws.rs.core.Context;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -41,7 +40,6 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 import com.google.gson.JsonSyntaxException;
-import org.json.JSONArray;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
@@ -249,7 +247,7 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
 	     String paymentType = paymentTypeConfig.getValue();
 	        
     	 
-    	 if(!savingsAccountId.isBlank()) {
+    	 if(!savingsAccountId.isEmpty()) {
     		    System.out.println("savings account NOT blank");
     		    //String depositUrl = "https://livetest.encot.net/fineract-provider/api/v1/savingsaccounts/{savingsAccountId}/transactions?command=deposit&tenantIdentifier=default";
     		    MomoBridge depositUrlConfig = this.momoConfigurationRepository.findOneByName("depositSavingsUrl");
@@ -276,7 +274,7 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
     	            }
     	        System.out.println("deposit successful--- >" + responseMessage);
     	    	 }
-    	 else if(!phoneNumber.isBlank()) {
+    	 else if(!phoneNumber.isEmpty()) {
     		 
     	 System.out.println("savings account blank");
     	 String transactionId = response.get("transactionid");
