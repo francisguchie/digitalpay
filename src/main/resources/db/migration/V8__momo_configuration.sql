@@ -33,5 +33,5 @@ INSERT INTO `messagegateway`.`m_momo_configuration` (`name`, `config_value`) VAL
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`, `config_value`) VALUES ('depositSavingsUrl', 'https://livetest.encot.net/fineract-provider/api/v1/savingsaccounts/{defaultSavingsId}/transactions?command=deposit&tenantIdentifier=default');
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('mifos_username');
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('mifos_password');
-INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('subscription_key');
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('paymentType');
+-- INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('subscription_key');

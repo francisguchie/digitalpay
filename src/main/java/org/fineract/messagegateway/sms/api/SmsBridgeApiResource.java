@@ -74,7 +74,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.w3c.dom.Document;
@@ -233,7 +232,6 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
      
      /*********************************************FROM HERE Payment From Encot TO MOMO ************************************/
      @RequestMapping(value = "/payment", method = RequestMethod.POST, consumes = {"application/xml", "text/xml;charset=utf-8"}, produces = {"application/xml", "text/xml;charset=utf-8"})
-     @ApiOperation(value = "payment")
      public String postDepositMomo(@RequestBody String xml) {
     	 String responseMessage = null;
     	 
