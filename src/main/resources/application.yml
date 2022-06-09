@@ -1,6 +1,6 @@
 # server configuration
 server:
-  port: 31937
+  port: 8945
 
 # endpoint configuration
 endpoints:
@@ -23,5 +23,5 @@ spring:
 
 # Status Callback configuration for Twilio. Port will be taken from server configuration
 hostconfig:
-  host-address: 34.82.194.138
-  protocol: http
+  host-address: 212.88.125.189
+  protocol: https
