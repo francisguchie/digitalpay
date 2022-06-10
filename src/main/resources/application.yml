@@ -1,10 +1,10 @@
 # server configuration
 server:
   ssl:
-    key-store: classpath:springboot.p12
+    key-store: classpath:tomcat.p12
     key-store-password: L3ts3ncryptp455w0rd
     key-store-type: pkcs12
-    key-alias: springboot
+    key-alias: tomcat
     key-password: L3ts3ncryptp455w0rd
     port: 8945
 
