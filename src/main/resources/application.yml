@@ -1,6 +1,12 @@
 # server configuration
 server:
-  port: 8945
+  ssl:
+    key-store: classpath:keystore.p12
+    key-store-password: L3ts3ncryptp455w0rd
+    key-store-type: pkcs12
+    key-alias: springboot
+    key-password: L3ts3ncryptp455w0rd
+    port: 8945
 
 # endpoint configuration
 endpoints:
@@ -16,10 +22,10 @@ spring:
       ddl-auto: none
 
   datasource:
-    url: jdbc:mysql:thin://localhost:3306/messagegateway
+    url: jdbc:mysql://localhost:3306/messagegateway
     username: root
     password: mysql
-    driver-class-name: org.drizzle.jdbc.DrizzleDriver
+    driver-class-name: com.mysql.jdbc.Driver
 
 # Status Callback configuration for Twilio. Port will be taken from server configuration
 hostconfig:
