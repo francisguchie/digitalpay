@@ -34,4 +34,4 @@ INSERT INTO `messagegateway`.`m_momo_configuration` (`name`, `config_value`) VAL
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('mifos_username');
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('mifos_password');
 INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('paymentType');
--- INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('subscription_key');
+INSERT INTO `messagegateway`.`m_momo_configuration` (`name`) VALUES ('subscription_key');
