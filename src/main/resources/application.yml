@@ -1,11 +1,12 @@
 # server configuration
 server:
   ssl:
-    key-store: \MomoJarJava1108\tomcat.p12
-    key-store-password: L3ts3ncryptp455w0rd
-    key-store-type: pkcs12
-    key-alias: tomcat
-    key-password: L3ts3ncryptp455w0rd
+    key-store: \MomoJarJava1108\192_168_1_6_pdn.jks
+    key-store-password: klUoPYi9O0aWr391
+    key-store-type: jks
+    key-password: klUoPYi9O0aWr391
+    protocol: TLS
+    enabled-protocols: TLSv1.2
   port: 8945
 
 # endpoint configuration
