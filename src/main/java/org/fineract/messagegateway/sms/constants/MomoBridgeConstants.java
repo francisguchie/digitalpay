@@ -39,7 +39,18 @@ public interface MomoBridgeConstants {
 	String payeeNote_paramname = "payeeNote";
 	
 	String externalId_paramname = "externalId";
+	
+	String transactionDate_paramname = "transactionDate";
+	
+	String transactionAmount_paramname = "transactionAmount";
+	
+	String paymentTypeId_paramname = "paymentTypeId";
+	
+	String note_paramname = "note";
 
 	Set<String> supportedParameters = new HashSet<>(Arrays.asList(remoteUsername_paramname,
 			remotePassword_paramname, msisdn_paramname, amount_paramname, currency_paramname, payerNote_paramname, payeeNote_paramname, externalId_paramname));
+	
+	Set<String> withdrawSupportedParameters = new HashSet<>(Arrays.asList(transactionDate_paramname,
+			transactionAmount_paramname, paymentTypeId_paramname, note_paramname));
 }

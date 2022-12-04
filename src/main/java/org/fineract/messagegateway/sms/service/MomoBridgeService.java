@@ -43,14 +43,19 @@ import org.fineract.messagegateway.sms.api.SmsBridgeApiResource;
 import org.fineract.messagegateway.sms.constants.MomoBridgeConstants;
 import org.fineract.messagegateway.sms.constants.SmsConstants;
 import org.fineract.messagegateway.sms.data.MomoTransactionData;
+import org.fineract.messagegateway.sms.data.MomoWithdrawData;
 import org.fineract.messagegateway.sms.domain.MomoBridge;
 import org.fineract.messagegateway.sms.domain.SMSBridge;
 import org.fineract.messagegateway.sms.repository.MomoConfigurationRepository;
 import org.fineract.messagegateway.sms.repository.MomoTransactionsRepository;
 import org.fineract.messagegateway.sms.repository.SMSBridgeRepository;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonElement;
+import java.math.BigDecimal;
+import org.fineract.messagegateway.sms.domain.MomoTransactions;
 
 import java.util.Map;
 import org.fineract.messagegateway.sms.serialization.SmsBridgeSerializer;
@@ -246,5 +251,157 @@ public class MomoBridgeService {
 		MomoTransactionData momoBridge = new MomoTransactionData(msisdn, amount, currency, payerNote, payeeNote, externalId) ;
 
 		return momoBridge;
+	}
+	
+	public MomoWithdrawData validateWithdrawCreate(final String json) {
+		final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+		this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, MomoBridgeConstants.withdrawSupportedParameters);
+
+		final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+		final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
+				.resource("smsBridge");
+		final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+		final String transactionAmount = this.fromApiJsonHelper.extractStringNamed(MomoBridgeConstants.transactionAmount_paramname, element);
+		baseDataValidator.reset().parameter(MomoBridgeConstants.transactionAmount_paramname).value(transactionAmount).notBlank();
+
+		final String transactionDate = this.fromApiJsonHelper.extractStringNamed(MomoBridgeConstants.transactionDate_paramname, element);
+		baseDataValidator.reset().parameter(MomoBridgeConstants.transactionDate_paramname).value(transactionDate).notBlank();
+
+		final String paymentTypeId = this.fromApiJsonHelper.extractStringNamed(MomoBridgeConstants.paymentTypeId_paramname, element);
+		baseDataValidator.reset().parameter(MomoBridgeConstants.paymentTypeId_paramname).value(paymentTypeId).notBlank();
+
+		final String note = this.fromApiJsonHelper.extractStringNamed(MomoBridgeConstants.note_paramname, element);
+		baseDataValidator.reset().parameter(MomoBridgeConstants.note_paramname).value(note).notBlank();
+
+		MomoWithdrawData momoWithdraw = new MomoWithdrawData(transactionAmount, transactionDate, paymentTypeId, note) ;
+
+		return momoWithdraw;
+	}
+	
+	
+	public String getMomoResponse(final String jsonBody) {
+		String apiKey = null;
+    	 String url = null;
+    	 String uuid = null;
+    	 MomoBridge uuidConfig = this.momoConfigurationRepository.findOneByName("uuid");
+    	 System.out.println("uuidConfig:"+ uuidConfig);
+    	 if(uuidConfig.getValue().equals("null")) { //saved UUID
+    		 System.out.println("uuidConfig null");
+    		 MomoBridge uuidurl = this.momoConfigurationRepository.findOneByName("uuid_url");
+    		 url = uuidurl.getValue();
+    		 final Response apiUser = okHttpMethod(url, null, "uuid", null);
+    		
+    		 try {
+    		 uuid = apiUser.body().string();
+    		 System.out.println(" 200 apiuser** "+uuid);
+    		 }catch (IOException e) {
+                 LOG.error("error occured in HTTP request-response method.", e);
+             }
+    		 
+    		 uuidConfig.setValue(uuid);
+    		 this.momoConfigurationRepository.save(uuidConfig);
+    	 }
+    	 
+    	 MomoBridge apiKeyConfig = this.momoConfigurationRepository.findOneByName("api_key");
+    	 if(apiKeyConfig.getValue().equals("null")) { //saved apikey
+    		 
+    		 MomoBridge apiUserUrl = this.momoConfigurationRepository.findOneByName("get_api_user_url");
+    		 url = apiUserUrl.getValue();
+    		 uuidConfig = this.momoConfigurationRepository.findOneByName("uuid");
+    		 String xReferenceId = uuidConfig.getValue();
+    		 String urlValue = url.replace("{uuid}", xReferenceId);
+    		 Response apiUser = okHttpMethod(urlValue, null, "getapiuser", null); //done 
+    		 
+    		 Integer code = apiUser.code();
+    		 System.out.println("code: "+ code);
+    		 if(code.equals(200)) { //apiuser is ok, create apikey
+    			 System.out.println("200: ");
+    			 MomoBridge apiKeyUrl = this.momoConfigurationRepository.findOneByName("api_key_url");
+    			 url = apiKeyUrl.getValue();
+    			 urlValue = url.replace("{uuid}", xReferenceId);
+    			 apiUser = okHttpMethod(urlValue, "", "postapikey", null); //done
+    			 
+    			 String apiKeyValue = null;
+    			 try {
+    			 apiKeyValue = apiUser.body().string();
+    			 System.out.println(" 200 apiuser** "+apiKeyValue);
+    			 }catch (IOException e) {
+                     LOG.error("error occured in HTTP request-response method.", e);
+                 }
+    			 JsonParser parser = new JsonParser();
+    			 JsonObject reportObject = parser.parse(apiKeyValue).getAsJsonObject();
+    		     apiKey = reportObject.get("apiKey").getAsString();
+    		     
+    		     apiKeyConfig = this.momoConfigurationRepository.findOneByName("api_key");
+    		     apiKeyConfig.setValue(apiKey);
+    		     this.momoConfigurationRepository.save(apiKeyConfig);
+    		 }
+    		 else {
+    			 System.out.println("else apikey: ");// apiuser is not ok, post apiuser with existing uuid and validate 
+    			 apiUserUrl = this.momoConfigurationRepository.findOneByName("api_user_url");
+        		 url = apiUserUrl.getValue();
+        		// String webHook = this.momoConfigurationRepository.findOneByName("web_hook").getValue();
+        		// String body = "{'':webHook }";
+        		 apiUser = okHttpMethod(url, "", "postapiuser", null); //done (NOT WORKING)
+        		 
+        		 code = apiUser.code();
+        		 System.out.println("else code : " + code);
+        		 //call this function again
+        		 
+    		 }
+    	 }
+    	 MomoBridge token = this.momoConfigurationRepository.findOneByName("token"); 
+    	 if(token.getValue().equals("null")){ //also check the expiry of the token
+    		 MomoBridge tokenUrl = this.momoConfigurationRepository.findOneByName("create_token_url");
+    		 Response tokenResponse = okHttpMethod(tokenUrl.getValue(), "", "token", null);
+    		 
+    		 String tokenValue = null;
+    		 try {
+    		 tokenValue = tokenResponse.body().string();
+    		 System.out.println(" tokenResponse response** "+tokenValue);
+    		 }catch (IOException e) {
+                 LOG.error("error occured in HTTP request-response method.", e);
+             }
+    		
+    		 JsonParser parser = new JsonParser();
+    		 JsonObject reportObject = parser.parse(tokenValue).getAsJsonObject();
+		     String accessToken = reportObject.get("access_token").getAsString();
+		    
+    		 token = this.momoConfigurationRepository.findOneByName("token");
+    		
+    		 token.setValue(accessToken);
+    		
+    		 this.momoConfigurationRepository.save(token);
+    	 }
+    	 
+    	 
+    	 final MomoBridge tranferUrlConfig = this.momoConfigurationRepository.findOneByName("transfer_url");
+         final String transferUrl = tranferUrlConfig.getValue();
+         
+         MomoTransactionData momoBridge = validateCreate(jsonBody);
+         String transaction = "{'amount': "+momoBridge.getAmount()+",'currency':"+momoBridge.getCurrency()+",'externalId': "+momoBridge.getExternalId()+",'payee': {'partyIdType': 'MSISDN','partyId': '"+momoBridge.getMsisdn()+"'},'payerMessage': '"+momoBridge.getPayerNote()+"','payeeNote': '"+momoBridge.getPayeeNote()+"'}";
+         String xReferenceId =  generateUUID();
+         Response transferResponse = okHttpMethod(transferUrl, transaction, "momo", xReferenceId);
+        
+       //getting param from body to save in m_momo_transactions table
+         Integer statusCode = 202;
+         Date date = new Date();
+         BigDecimal transactionAmount= new BigDecimal(momoBridge.getAmount());
+         if(transferResponse.code()==statusCode) {
+        	 MomoTransactions momoTransactions = new MomoTransactions(xReferenceId, "Disbursement", date, transactionAmount);
+        	 this.momoTransactionsRepository.save(momoTransactions);
+         }
+         
+         
+         String response = null;
+         try {
+        	 response =  transferResponse.body().string();
+        	 
+         }catch (IOException e) {
+             LOG.error("error occured in HTTP request-response method.", e);
+         }
+         System.out.println("responseCode** "+transferResponse.code());
+         return response;
 	}
 }

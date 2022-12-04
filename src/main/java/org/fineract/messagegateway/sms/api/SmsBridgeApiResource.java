@@ -63,6 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.fineract.messagegateway.helpers.UnsupportedParameterExceptionMapper;
 import org.fineract.messagegateway.sms.data.MomoTransactionData;
+import org.fineract.messagegateway.sms.data.MomoWithdrawData;
 import org.fineract.messagegateway.sms.domain.MomoBridge;
 import org.fineract.messagegateway.sms.domain.MomoTransactions;
 import org.fineract.messagegateway.sms.domain.SMSBridge;
@@ -564,7 +565,7 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
     	                LOG.error("error occured in HTTP request-response method.", e);
     	            }
 
-    	    	 }
+    	 }
     	 else if(!phoneNumber.isEmpty()) {
 
     	 System.out.println("savings account blank");
@@ -678,6 +679,14 @@ private static final Logger LOG = LoggerFactory.getLogger(SmsBridgeApiResource.c
    //        return responseMessage;
       return new ResponseEntity<>(HttpStatus.OK);
 
+     }
+     
+     @RequestMapping(value = "/withdraw/", method = RequestMethod.POST, consumes = {"application/json", "text/xml;charset=utf-8"}, produces = {"application/json", "text/json;charset=utf-8"})
+     public ResponseEntity<Void>  postTransferMomo(@RequestBody String json, HttpServletResponse httpResponse) {
+    
+    	 final String clientData = this.momoBridgeService.getMomoResponse(json);
+    	 return new ResponseEntity<>(HttpStatus.OK);
+    	 
      }
 
 	@ExceptionHandler({PlatformApiDataValidationException.class})
